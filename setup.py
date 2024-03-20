@@ -34,9 +34,9 @@ setup(
     ],
     description="Helper functions for AWS Bedrock and RAG retrieval",
     entry_points={
-        "console_scripts": [
-            "aws_bedrock_utilities=aws_bedrock_utilities.cli:main",
-        ],
+        # "console_scripts": [
+        #     "aws_bedrock_utilities=aws_bedrock_utilities.cli:main",
+        # ],
     },
     install_requires=requirements,
     license="MIT license",
@@ -50,6 +50,8 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/dabble-of-devops-bioanalyze/aws_bedrock_utilities",
-    version="0.1.0",
+    # version="0.1.0",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )
