@@ -1,0 +1,44 @@
+name: Create Release
+
+on:
+    workflow_run:
+        workflows: [ "Run Tests" ]
+        types: [ completed ]
+        branches:
+            - master
+            - main
+
+# trying with PR
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v2
+
+            -   uses: actions-ecosystem/action-get-latest-tag@v1
+                id: get-latest-tag
+
+            -   uses: actions-ecosystem/action-bump-semver@v1
+                id: bump-semver
+                with:
+                    current_version: ${{ steps.get-latest-tag.outputs.tag }}
+                    level: minor
+
+            -   uses: actions-ecosystem/action-push-tag@v1
+                with:
+                    tag: ${{ steps.bump-semver.outputs.new_version }}
+                    message: "${{ steps.bump-semver.outputs.new_version }}: PR #${{ github.event.pull_request.number }} ${{ github.event.pull_request.title }}"
+
+            -   uses: heinrichreimer/github-changelog-generator-action@v2.1.1
+                id: changelog
+                with:
+                    token: ${{ secrets.GITHUB_TOKEN }}
+
+            -   name: Create a GitHub release
+                uses: actions/create-release@v1
+                env:
+                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                with:
+                    tag_name: ${{ steps.bump-semver.outputs.new_version }}
+                    release_name: Release ${{ steps.bump-semver.outputs.new_version }}
+                    body: ${{ steps.changelog.outputs.changelog }}

@@ -1,0 +1,7 @@
+pandas
+numpy
+langserve[all]
+langchain-community
+boto3
+rich
+typer
