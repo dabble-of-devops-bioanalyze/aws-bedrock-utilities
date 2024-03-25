@@ -160,14 +160,16 @@ Bot:
         query: str,
         prompt_template=None,
         model_id="anthropic.claude-instant-v1",
+        memory: ConversationBufferMemory = None,
     ) -> RAGResults:
         if not prompt_template:
             prompt_template = self.chat_prompt_template
+        if not memory:
+            memory = ConversationBufferMemory(human_prefix="User", ai_prefix="Bot")
 
         prompt = PromptTemplate(
             input_variables=["history", "input"], template=prompt_template
         )
-        memory = ConversationBufferMemory(human_prefix="User", ai_prefix="Bot")
         conversation = ConversationChain(
             prompt=prompt,
             llm=self.get_llm(model_id=model_id),
