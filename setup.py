@@ -52,6 +52,6 @@ setup(
     url="https://github.com/dabble-of-devops-bioanalyze/aws_bedrock_utilities",
     # version="0.1.0",
     version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    # cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

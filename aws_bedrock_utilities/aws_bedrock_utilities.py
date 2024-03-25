@@ -63,6 +63,7 @@ class BedrockUtils:
         self.models = [
             "anthropic.claude-instant-v1",
             "anthropic.claude-v2",
+            "anthropic.claude-3-haiku-20240307-v1:0",
             "meta.llama2-13b-chat-v1",
             "meta.llama2-70b-chat-v1",
         ]
