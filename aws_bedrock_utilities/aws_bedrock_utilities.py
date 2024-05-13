@@ -88,9 +88,9 @@ class BedrockUtils:
     {context}
     </context>
 
-    <question>
-    {question}
-    </question>
+    <input>
+    {input}
+    </input>
 
     The response should be specific and use statistics or numbers when possible.
 
@@ -143,7 +143,7 @@ Bot:
         if not prompt_template:
             prompt_template = self.kb_prompt_template
         prompt = PromptTemplate(
-            template=prompt_template, input_variables=["context", "question"]
+            template=prompt_template, input_variables=["context", "input"]
         )
         qa = RetrievalQA.from_chain_type(
             llm=self.get_llm(model_id=model_id),
