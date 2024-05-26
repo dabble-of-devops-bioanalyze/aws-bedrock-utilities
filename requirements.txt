@@ -1,7 +1,15 @@
 pandas
 numpy
-langserve[all]
 langchain-community
+langchain_experimental
+langchain_postgres
+langchain-aws
+pubget
+pypdf
 boto3
 rich
 typer
+joblib
+funcy
+s3fs
+toolz

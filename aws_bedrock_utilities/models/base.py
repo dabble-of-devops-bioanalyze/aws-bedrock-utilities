@@ -2,15 +2,21 @@
 
 import boto3
 import pprint
-from typing import Dict, Any, TypedDict, List
+import json
+import hashlib
+import funcy
+from typing import Dict, Any, TypedDict, List, Optional
 from langchain_core.documents.base import Document
 from botocore.client import Config
 from langchain.llms.bedrock import Bedrock
-from langchain.retrievers.bedrock import AmazonKnowledgeBasesRetriever
+from langchain.retrievers.bedrock import (
+    AmazonKnowledgeBasesRetriever,
+    RetrievalConfig,
+    VectorSearchConfig,
+)
 from langchain.prompts import PromptTemplate
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
-from langchain_community.chat_models import BedrockChat
 from langchain_core.messages import HumanMessage
 from langchain.chains import RetrievalQA
 from langchain_community.embeddings import (
@@ -21,16 +27,12 @@ from langchain_experimental.text_splitter import (
 )  # to split documents into smaller chunks.
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.docstore.document import Document
-import boto3
-import json
-import hashlib
 from langchain_postgres import PGVector
 from langchain_postgres.vectorstores import PGVector
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.chat_models import BedrockChat
 from langchain.chains import RetrievalQA
 from langchain.callbacks import StdOutCallbackHandler
-import funcy
 
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
@@ -45,6 +47,7 @@ from langchain.chains import create_retrieval_chain
 
 from langchain.agents import Tool
 from langchain.chains import RetrievalQA
+from langchain_aws import ChatBedrock
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from pydantic import BaseModel, Field
@@ -58,28 +61,6 @@ logging.basicConfig(
     level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
 )
 
-bedrock_config = Config(
-    connect_timeout=120, read_timeout=120, retries={"max_attempts": 0}
-)
-bedrock_client = boto3.client("bedrock-runtime")
-bedrock_agent_client = boto3.client("bedrock-agent-runtime", config=bedrock_config)
-
-model_kwargs = {
-    "claude": {"temperature": 0, "top_k": 10, "max_tokens_to_sample": 3000},
-    "llama2": {
-        "temperature": 0.5,
-        "top_p": 0.9,
-        "max_gen_len": 512,
-    },
-}
-
-
-def get_model_ids():
-    client = boto3.client("bedrock")
-    models = client.list_foundation_models()
-    model_ids = [model["modelId"] for model in models["modelSummaries"]]
-    return model_ids
-
 
 class RAGResults(TypedDict):
     query: str
@@ -87,26 +68,35 @@ class RAGResults(TypedDict):
     source_documents: List[Document | str]
 
 
-# function to create vector store
-def create_vectorstore(embeddings, collection_name, conn):
-    vectorstore = PGVector(
-        embeddings=embeddings,
-        collection_name=collection_name,
-        connection=conn,
-        use_jsonb=True,
-    )
-    return vectorstore
+class BedrockBase:
+    def __init__(
+        self,
+        connect_timeout: int = 120,
+        read_timeout: int = 120,
+        bedrock_client: Optional = None,
+        bedrock_runtime_client: Optional = None,
+        bedrock_agent_client: Optional = None,
+    ):
 
-
-class BedrockUtils:
-    def __init__(self, connect_timeout: int = 120, read_timeout: int = 120):
         self.bedrock_config = Config(
-            connect_timeout=120, read_timeout=120, retries={"max_attempts": 0}
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            retries={"max_attempts": 0},
         )
-        self.bedrock_client = boto3.client("bedrock-runtime")
-        self.bedrock_agent_client = boto3.client(
-            "bedrock-agent-runtime", config=bedrock_config
-        )
+        if not bedrock_client:
+            self.bedrock_client = boto3.client("bedrock")
+        else:
+            self.bedrock_client = bedrock_client
+        if not bedrock_runtime_client:
+            self.bedrock_runtime_client = boto3.client("bedrock-runtime")
+        else:
+            self.bedrock_runtime_client = bedrock_runtime_client
+        if not bedrock_agent_client:
+            self.bedrock_agent_client = boto3.client(
+                "bedrock-agent-runtime", config=self.bedrock_config
+            )
+        else:
+            self.bedrock_agent_client = bedrock_agent_client
         self.models = [
             "anthropic.claude-instant-v1",
             "anthropic.claude-v2",
@@ -130,7 +120,7 @@ class BedrockUtils:
         }
         self.kb_prompt_template = """
     Human: You are an AI system for knowledge retrieval. You provide answers to questions by using fact based and statistical information when possible.
-    Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags.
+    Use the following pieces of information to provide a concise answer to the question enclosed in <input> tags.
     If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
     <context>
@@ -146,46 +136,51 @@ class BedrockUtils:
     Assistant:"""
         self.chat_prompt_template = """
 Human: You are an AI system for knowledge retrieval. You provide answers to questions by using fact based and statistical information when possible.
-Use the following pieces of information to provide a concise answer to the question enclosed in {input} tags.
+Use the following pieces of information to provide a concise answer to the question enclosed in {query} tags.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
 Current conversation:
 {history}
 
 The response should be specific and use statistics or numbers when possible.
-User: {input}
+User: {query}
 Bot:
     """
+
+    def get_model_ids(self, client: Optional = None):
+        if not client:
+            client = boto3.client("bedrock")
+        models = client.list_foundation_models()
+        model_ids = [model["modelId"] for model in models["modelSummaries"]]
+        return model_ids
 
     def get_models_args(self, model: str):
         for key in self.model_kwargs.keys():
             if key in model:
-                logging.info(f"Getting models args for {key}")
+                # logging.info(f"Getting models args for {key}")
                 return self.model_kwargs[key]
         logging.warning(f"Model args not found for {model}")
         return {}
 
     def get_llm(self, model_id: str):
         args = self.get_models_args(model_id)
-        llm = BedrockChat(
+        llm = ChatBedrock(
             model_id=model_id,
             model_kwargs=args,
             # client=bedrock_client,
         )
         return llm
 
-    def get_pg_retriever(self):
-        return
-
-    def get_kb_retriever(
+    def get_retriever(
         self, knowledge_base_id: str, n_results: int = 4
     ) -> AmazonKnowledgeBasesRetriever:
+        retrieval_config = RetrievalConfig(
+            vectorSearchConfiguration=VectorSearchConfig(numberOfResults=n_results)
+        )
+
         retriever = AmazonKnowledgeBasesRetriever(
             knowledge_base_id=knowledge_base_id,
-            retrieval_config={
-                "vectorSearchConfiguration": {"numberOfResults": n_results}
-            },
-            # region_name=AWS_REGION,
+            retrieval_config=retrieval_config,
         )
         return retriever
 
@@ -204,7 +199,7 @@ Bot:
         qa = RetrievalQA.from_chain_type(
             llm=self.get_llm(model_id=model_id),
             chain_type="stuff",
-            retriever=self.get_kb_retriever(knowledge_base_id=knowledge_base_id),
+            retriever=self.get_retriever(knowledge_base_id=knowledge_base_id),
             return_source_documents=True,
             chain_type_kwargs={"prompt": prompt},
         )
@@ -224,7 +219,7 @@ Bot:
             memory = ConversationBufferMemory(human_prefix="User", ai_prefix="Bot")
 
         prompt = PromptTemplate(
-            input_variables=["history", "input"], template=prompt_template
+            input_variables=["history", "query"], template=prompt_template
         )
         conversation = ConversationChain(
             prompt=prompt,
