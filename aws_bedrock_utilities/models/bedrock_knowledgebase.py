@@ -10,9 +10,10 @@ from langchain.retrievers.bedrock import (
     RetrievalConfig,
     VectorSearchConfig,
 )
-from rich.logging import RichHandler
 
 from aws_bedrock_utilities.models.base import BedrockBase, RAGResults
+
+from rich.logging import RichHandler
 
 FORMAT = "%(message)s"
 logging.basicConfig(

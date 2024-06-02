@@ -9,3 +9,5 @@ from aws_bedrock_utilities.models import (
     BedrockChatWrapper,
     BedrockKnowledgeBaseChatWrapper,
 )
+
+DEFAULT_MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0"

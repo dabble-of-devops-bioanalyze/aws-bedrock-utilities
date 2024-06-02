@@ -1,7 +1,10 @@
 """Main module."""
 
+import math
 import hashlib
 import logging
+import numpy as np
+from io import StringIO
 import os
 from typing import Optional, List, Dict, Any
 import glob
@@ -23,6 +26,7 @@ from rich.logging import RichHandler
 from aws_bedrock_utilities.models.base import BedrockBase
 from langchain_community.document_loaders import (
     WebBaseLoader,
+    JSONLoader,
     TextLoader,
     PyPDFLoader,
     CSVLoader,
@@ -34,6 +38,18 @@ from langchain_community.document_loaders import (
     UnstructuredExcelLoader,
     DataFrameLoader,
 )
+import logging
+
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.prompts import PromptTemplate
+from langchain.retrievers.bedrock import (
+    AmazonKnowledgeBasesRetriever,
+    RetrievalConfig,
+    VectorSearchConfig,
+)
+
+from aws_bedrock_utilities.models.base import BedrockBase, RAGResults
 
 FORMAT = "%(message)s"
 logging.basicConfig(
@@ -208,11 +224,16 @@ class BedrockPGWrapper(BedrockBase):
         conn = self.connection_string()
         return conn.cursor()
 
-    def create_vectorstore(
-        self, collection_name: str, embeddings: Optional[BedrockEmbeddings] = None
-    ):
+    @property
+    def embeddings(self):
+        embeddings = BedrockEmbeddings(
+            model_id="amazon.titan-embed-text-v1",
+        )
+        return embeddings
+
+    def create_vectorstore(self, collection_name: str):
         vectorstore = PGVector(
-            embeddings=embeddings,
+            embeddings=self.embeddings,
             collection_name=collection_name,
             connection=self.connection_string,
             use_jsonb=True,
@@ -246,7 +267,7 @@ class BedrockPGWrapper(BedrockBase):
             # logging.info(f"Adding N: {len(filtered_docs)}")
             try:
                 with funcy.print_durations("load psql"):
-                    vectorstore.documents(documents=filtered_docs, ids=ids)
+                    vectorstore.add_documents(documents=filtered_docs, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
             # logging.info(f"Complete {x}/{y}")
@@ -275,18 +296,64 @@ class BedrockPGWrapper(BedrockBase):
         page_content_column: str = "id",
         chunk_size: int = 1000,
         collection_name: str = "default",
+        additional_metadata: Optional[Dict[str, Any]] = None,
     ):
         x = 0
         y = len(files)
-        ids = []
+        total_chunks = math.ceil(y / chunk_size)
         docs = []
         for p in partition_all(chunk_size, files):
+            logging.info(f"Processing chunk {x} of {total_chunks}")
             for file in p:
                 df = pd.read_parquet(file)
+                df = pd.read_json(StringIO(df.to_json()))
+                df = df.replace(np.nan, None)
                 loader = DataFrameLoader(df, page_content_column=page_content_column)
                 data: List[Document] = loader.load()
+                if additional_metadata:
+                    for d in data:
+                        d["metadata"].update(additional_metadata)
                 docs = docs + data
+            logging.info(f"Running ingestion job")
             ids = self.run_ingestion_job(
-                documents=docs, collection_name=collection_name
+                documents=docs,
+                collection_name=collection_name,
             )
+            x = x + 1
         return
+
+    def run_kb_chat(
+        self,
+        query: str,
+        collection_name: str,
+        prompt_template=None,
+        model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+    ) -> RAGResults:
+        if not prompt_template:
+            prompt_template = self.kb_prompt_template
+        prompt = PromptTemplate(
+            template=prompt_template, input_variables=["context", "input"]
+        )
+        retriever = self.create_vectorstore(
+            collection_name=collection_name
+        ).as_retriever()
+
+        combine_docs_chain = create_stuff_documents_chain(
+            llm=self.get_llm(model_id=model_id),
+            prompt=prompt,
+        )
+        retrieval_chain = create_retrieval_chain(retriever, combine_docs_chain)
+        response = retrieval_chain.invoke(
+            {
+                "input": query,
+            }
+        )
+        source_documents = response["context"]
+        answer = response["answer"]
+        query = query
+        answer = RAGResults(
+            source_documents=source_documents,
+            result=answer,
+            query=query,
+        )
+        return answer
