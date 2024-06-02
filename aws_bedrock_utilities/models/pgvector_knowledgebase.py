@@ -164,7 +164,7 @@ def get_loader(filepath: str) -> Dict[str, Any]:
     return dict(loader=loader, known_type=known_type, file_ext=file_ext)
 
 
-class BedrockKnowledgeBaseChatWrapper(BedrockBase):
+class BedrockPGWrapper(BedrockBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if "prompt_template" not in kwargs:
@@ -178,9 +178,20 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
         self.s3 = boto3.client("s3")
 
     @property
+    def connection_string(self):
+        driver = "psycopg2"
+        user = os.environ.get("POSTGRES_USER", "postgres")
+        password = os.environ.get("POSTGRES_PASSWORD")
+        host = os.environ.get("POSTGRES_HOST")
+        port = os.environ.get("POSTGRES_PORT")
+        database = os.environ.get("POSTGRES_DB")
+        connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+        return connection
+
+    @property
     def conn(self):
         driver = "psycopg2"
-        user = os.environ.get("POSTGRES_USER")
+        user = os.environ.get("POSTGRES_USER", "postgres")
         password = os.environ.get("POSTGRES_PASSWORD")
         host = os.environ.get("POSTGRES_HOST")
         port = os.environ.get("POSTGRES_PORT")
@@ -194,7 +205,7 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
 
     @property
     def cur(self):
-        conn = self.conn()
+        conn = self.connection_string()
         return conn.cursor()
 
     def create_vectorstore(
@@ -203,7 +214,7 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
         vectorstore = PGVector(
             embeddings=embeddings,
             collection_name=collection_name,
-            connection=self.conn,
+            connection=self.connection_string,
             use_jsonb=True,
         )
         return vectorstore
@@ -230,12 +241,12 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
 
         if len(filtered_docs):
             vectorstore = self.create_vectorstore(collection_name=collection_name)
-            texts = [i.page_content for i in filtered_docs]
-            metadatas = [i.metadata for i in filtered_docs]
+            # texts = [i.page_content for i in filtered_docs]
+            # metadatas = [i.metadata for i in filtered_docs]
             # logging.info(f"Adding N: {len(filtered_docs)}")
             try:
                 with funcy.print_durations("load psql"):
-                    vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+                    vectorstore.documents(documents=filtered_docs, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
             # logging.info(f"Complete {x}/{y}")
@@ -253,7 +264,9 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
             for file in p:
                 doc = self.load_local_file_to_document(file)
                 docs = docs + doc
-            ids = self.run_ingestion_job(documents=docs, collection_name=collection_name)
+            ids = self.run_ingestion_job(
+                documents=docs, collection_name=collection_name
+            )
         return
 
     def setup_local_parquet_job(
@@ -273,5 +286,7 @@ class BedrockKnowledgeBaseChatWrapper(BedrockBase):
                 loader = DataFrameLoader(df, page_content_column=page_content_column)
                 data: List[Document] = loader.load()
                 docs = docs + data
-            ids = self.run_ingestion_job(documents=docs, collection_name=collection_name)
+            ids = self.run_ingestion_job(
+                documents=docs, collection_name=collection_name
+            )
         return
