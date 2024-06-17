@@ -48,6 +48,7 @@ from langchain.chains import create_retrieval_chain
 from langchain.agents import Tool
 from langchain.chains import RetrievalQA
 from langchain_aws import ChatBedrock
+import functools
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from pydantic import BaseModel, Field
@@ -162,6 +163,7 @@ Bot:
         logging.warning(f"Model args not found for {model}")
         return {}
 
+    @functools.cache
     def get_llm(self, model_id: str):
         args = self.get_models_args(model_id)
         llm = ChatBedrock(

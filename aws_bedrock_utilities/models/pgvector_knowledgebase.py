@@ -36,6 +36,7 @@ from langchain_community.document_loaders import (
     UnstructuredXMLLoader,
     UnstructuredRSTLoader,
     UnstructuredExcelLoader,
+    UnstructuredPowerPointLoader,
     DataFrameLoader,
 )
 import logging
@@ -167,6 +168,8 @@ def get_loader(filepath: str) -> Dict[str, Any]:
         loader = UnstructuredEPubLoader(filepath)
     elif file_ext in ["doc", "docx"]:
         loader = Docx2txtLoader(filepath)
+    elif file_ext == 'pptx':
+        loader = UnstructuredPowerPointLoader(filepath, mode="elements")
     elif file_ext in ["xls", "xlsx"]:
         loader = UnstructuredExcelLoader(filepath)
     elif file_ext == "json":

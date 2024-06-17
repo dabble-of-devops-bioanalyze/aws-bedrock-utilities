@@ -74,7 +74,7 @@ class BedrockChatWrapper(BedrockBase):
             prompt=prompt,
             llm=self.get_llm(model_id=model_id),
             verbose=True,
-            # memory=memory,
+            memory=ConversationBufferMemory(ai_prefix="AI Assistant"),
         )
 
         answer = conversation.invoke(query)
