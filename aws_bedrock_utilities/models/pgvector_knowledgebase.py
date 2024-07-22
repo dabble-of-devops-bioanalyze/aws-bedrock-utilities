@@ -9,6 +9,7 @@ import glob
 import boto3
 from toolz.itertoolz import partition_all
 import pandas as pd
+import unstructured
 from langchain_core.documents.base import Document
 
 import funcy
@@ -104,10 +105,8 @@ known_source_ext = [
 def load_and_split_pdf(file_path):
     loader = PyPDFLoader(file_path)
     pages = loader.load_and_split()
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    docs = text_splitter.split_documents(pages)
 
-    return docs
+    return pages
 
 
 def insert_pdf_embeddings(files: List[str], vectorstore: PGVector):

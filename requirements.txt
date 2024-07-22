@@ -13,3 +13,4 @@ joblib
 funcy
 s3fs
 toolz
+unstructured
