@@ -1,7 +1,5 @@
-"""Main module."""
-
-import math
 import hashlib
+import math
 import logging
 import numpy as np
 from io import StringIO
@@ -257,7 +255,15 @@ class BedrockPGWrapper(BedrockBase):
 
     def load_local_file_to_document(self, file) -> List[Document]:
         loader_data = get_loader(file)
-        data = loader_data["loader"].load()
+        data = []
+        try:
+            data = loader_data["loader"].load_and_split()
+        except NotImplementedError:
+            data = loader_data["loader"].load()
+        finally:
+            if not isinstance(data, list):
+                data = []
+
         # data.id = hashlib.sha256(data.page_content.encode()).hexdigest()
         return data
 
@@ -278,7 +284,7 @@ class BedrockPGWrapper(BedrockBase):
 
         if len(filtered_docs):
             try:
-                with funcy.print_durations("load psql"):
+                with funcy.print_durations(f"load psql: {len(filtered_docs)}"):
                     self.vectorstore.add_documents(documents=filtered_docs, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
@@ -317,6 +323,7 @@ class BedrockPGWrapper(BedrockBase):
         y = len(files)
         total_chunks = math.ceil(y / chunk_size)
         docs = []
+        # TODO Change this to jsonl and text loader
         for p in partition_all(chunk_size, files):
             logging.info(f"Processing chunk {x} of {total_chunks}")
             for file in p:
