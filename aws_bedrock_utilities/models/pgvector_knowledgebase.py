@@ -259,6 +259,8 @@ class BedrockPGWrapper(BedrockBase):
             data = loader_data["loader"].load_and_split()
         except NotImplementedError:
             data = loader_data["loader"].load()
+        except Exception as e:
+            data = []
         finally:
             if not isinstance(data, list):
                 data = []
@@ -301,7 +303,7 @@ class BedrockPGWrapper(BedrockBase):
         x = 0
         total_chunks = math.ceil(len(files) / chunk_size)
         for p in partition_all(chunk_size, files):
-            logging.info(f"Loading x: {x} of {total_chunks}")
+            logging.info(f"Loading x: {x} of {total_chunks} for:")
             for file in p:
                 doc = self.load_local_file_to_document(file)
                 docs = docs + doc

@@ -14,3 +14,9 @@ funcy
 s3fs
 toolz
 unstructured
+# required for pptx
+networkx
+openpyxl
+python-pptx
+rapidocr-onnxruntime
+python-magic
