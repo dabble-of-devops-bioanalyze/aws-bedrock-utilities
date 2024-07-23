@@ -278,13 +278,14 @@ class BedrockPGWrapper(BedrockBase):
         for d in documents:
             ids.append(hashlib.sha256(d.page_content.encode()).hexdigest())
 
+        doc_ids = []
         if len(documents):
             try:
                 with funcy.print_durations(f"load psql: {len(documents)}"):
-                    ids = self.vectorstore.add_documents(documents=documents, ids=ids)
+                    doc_ids = self.vectorstore.add_documents(documents=documents, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
-        return ids
+        return doc_ids
 
     def setup_local_injestion_job(
         self,
