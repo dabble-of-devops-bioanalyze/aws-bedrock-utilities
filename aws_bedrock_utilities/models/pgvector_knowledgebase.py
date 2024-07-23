@@ -272,7 +272,7 @@ class BedrockPGWrapper(BedrockBase):
         self,
         documents=List[Document],
     ):
-        logging.info("Starting ingestion job")
+        logging.info(f"Starting ingestion job for: {len(documents)} documents")
         y = len(documents)
         ids = []
         for d in documents:
@@ -284,7 +284,6 @@ class BedrockPGWrapper(BedrockBase):
                     self.vectorstore.add_documents(documents=documents, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
-            # logging.info(f"Complete {x}/{y}")
         return ids
 
     def setup_local_injestion_job(
