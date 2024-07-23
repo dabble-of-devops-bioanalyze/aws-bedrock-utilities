@@ -272,7 +272,7 @@ class BedrockPGWrapper(BedrockBase):
         self,
         documents=List[Document],
     ):
-        logging.info(f"Starting ingestion job for: {len(documents)} documents")
+        logging.info(f"Starting ingestion job")
         y = len(documents)
         ids = []
         for d in documents:
