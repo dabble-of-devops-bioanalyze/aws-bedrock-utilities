@@ -200,8 +200,8 @@ class BedrockPGWrapper(BedrockBase):
         user = os.environ.get("POSTGRES_USER", "postgres")
         password = os.environ.get("POSTGRES_PASSWORD")
         host = os.environ.get("POSTGRES_HOST")
-        port = os.environ.get("POSTGRES_PORT")
-        database = os.environ.get("POSTGRES_DB")
+        port = os.environ.get("POSTGRES_PORT", "5432")
+        database = os.environ.get("POSTGRES_DB", "postgres")
         connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
         return connection
 
