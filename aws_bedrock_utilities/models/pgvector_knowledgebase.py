@@ -165,7 +165,7 @@ def get_loader(filepath: str) -> Dict[str, Any]:
         loader = UnstructuredEPubLoader(filepath)
     elif file_ext in ["doc", "docx"]:
         loader = Docx2txtLoader(filepath)
-    elif file_ext == 'pptx':
+    elif file_ext == "pptx":
         loader = UnstructuredPowerPointLoader(filepath, mode="elements")
     elif file_ext in ["xls", "xlsx"]:
         loader = UnstructuredExcelLoader(filepath)
@@ -232,25 +232,22 @@ class BedrockPGWrapper(BedrockBase):
         )
         return embeddings
 
-    @property
-    def vectorstore(self):
-        vectorstore = PGVector(
-            embeddings=self.embeddings,
-            collection_name=self.collection_name,
-            connection=self.connection_string,
-            use_jsonb=True,
-        )
-
-        return vectorstore
-
     def create_vectorstore(self, collection_name: str):
-        vectorstore = PGVector(
+        return PGVector(
             embeddings=self.embeddings,
             collection_name=collection_name,
             connection=self.connection_string,
             use_jsonb=True,
         )
-        return vectorstore
+
+    @property
+    def vectorstore(self):
+        return PGVector(
+            embeddings=self.embeddings,
+            collection_name=self.collection_name,
+            connection=self.connection_string,
+            use_jsonb=True,
+        )
 
     def load_local_file_to_document(self, file) -> List[Document]:
         loader_data = get_loader(file)
@@ -265,28 +262,26 @@ class BedrockPGWrapper(BedrockBase):
             if not isinstance(data, list):
                 data = []
 
-        # data.id = hashlib.sha256(data.page_content.encode()).hexdigest()
-        return data
+        filtered_docs = []
+        for d in data:
+            if len(d.page_content):
+                filtered_docs.append(d)
+        return filtered_docs
 
     def run_ingestion_job(
         self,
         documents=List[Document],
-        collection_name: str = "default",
     ):
         logging.info("Starting ingestion job")
         y = len(documents)
-        filtered_docs = []
-        for d in documents:
-            if len(d.page_content):
-                filtered_docs.append(d)
         ids = []
-        for d in filtered_docs:
+        for d in documents:
             ids.append(hashlib.sha256(d.page_content.encode()).hexdigest())
 
-        if len(filtered_docs):
+        if len(documents):
             try:
-                with funcy.print_durations(f"load psql: {len(filtered_docs)}"):
-                    self.vectorstore.add_documents(documents=filtered_docs, ids=ids)
+                with funcy.print_durations(f"load psql: {len(documents)}"):
+                    self.vectorstore.add_documents(documents=documents, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
             # logging.info(f"Complete {x}/{y}")
@@ -295,22 +290,24 @@ class BedrockPGWrapper(BedrockBase):
     def setup_local_injestion_job(
         self,
         glob_pattern: str,
-        chunk_size: int = 1000,
-        collection_name: str = "default",
+        chunk_size: int = 1,
+        files: Optional[List[str]] = None,
     ):
-        files = glob.glob(glob_pattern)
+        if not files:
+            files = glob.glob(glob_pattern)
         docs = []
         x = 0
         total_chunks = math.ceil(len(files) / chunk_size)
+        all_ids = []
         for p in partition_all(chunk_size, files):
-            logging.info(f"Loading x: {x} of {total_chunks} for:")
+            logging.info(f"Loading x: {x} of {total_chunks} for")
             for file in p:
-                doc = self.load_local_file_to_document(file)
-                docs = docs + doc
-            ids = self.run_ingestion_job(
-                documents=docs, collection_name=collection_name
-            )
-        return
+                logging.info(f"Processing: {file}")
+                t_docs = self.load_local_file_to_document(file)
+                docs = docs + t_docs
+            ids = self.run_ingestion_job(documents=docs)
+            all_ids = all_ids + ids
+        return all_ids
 
     def setup_local_parquet_job(
         self,
