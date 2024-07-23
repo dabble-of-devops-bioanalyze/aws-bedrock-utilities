@@ -276,13 +276,19 @@ class BedrockPGWrapper(BedrockBase):
         logging.info(f"Starting ingestion job with {y} documents")
         ids = []
         for d in documents:
-            ids.append(hashlib.sha256(d.page_content.encode()).hexdigest())
+            ids.append(
+                hashlib.sha256(d.page_content.encode()).hexdigest()
+            )
+        texts = [i.page_content for i in documents]
+        # metadata is a dictionary. You can add to it!
+        metadatas = [i.metadata for i in documents]
+        # logging.info(f"Adding N: {len(filtered_docs)}")
 
         doc_ids = []
         if len(documents):
             try:
-                with funcy.print_durations(f"load psql: {len(documents)}"):
-                    doc_ids = self.vectorstore.add_documents(documents=documents, ids=ids)
+                with funcy.print_durations(f'load psql: {len(documents)}'):
+                    doc_ids = self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
         return doc_ids
