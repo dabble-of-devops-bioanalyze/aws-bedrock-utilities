@@ -272,8 +272,8 @@ class BedrockPGWrapper(BedrockBase):
         self,
         documents=List[Document],
     ):
-        logging.info(f"Starting ingestion job")
         y = len(documents)
+        logging.info(f"Starting ingestion job with {y} documents")
         ids = []
         for d in documents:
             ids.append(hashlib.sha256(d.page_content.encode()).hexdigest())
@@ -281,15 +281,15 @@ class BedrockPGWrapper(BedrockBase):
         if len(documents):
             try:
                 with funcy.print_durations(f"load psql: {len(documents)}"):
-                    self.vectorstore.add_documents(documents=documents, ids=ids)
+                    ids = self.vectorstore.add_documents(documents=documents, ids=ids)
             except Exception as e:
                 logging.warning(f"{e}")
         return ids
 
     def setup_local_injestion_job(
         self,
-        glob_pattern: str,
         chunk_size: int = 1,
+        glob_pattern: Optional[str] = None,
         files: Optional[List[str]] = None,
     ):
         if not files:
@@ -313,7 +313,6 @@ class BedrockPGWrapper(BedrockBase):
         files,
         page_content_column: str = "id",
         chunk_size: int = 1000,
-        collection_name: str = "default",
         additional_metadata: Optional[Dict[str, Any]] = None,
     ):
         x = 0
@@ -336,7 +335,6 @@ class BedrockPGWrapper(BedrockBase):
             logging.info(f"Running ingestion job")
             ids = self.run_ingestion_job(
                 documents=docs,
-                collection_name=collection_name,
             )
             x = x + 1
         return
