@@ -331,14 +331,24 @@ class BedrockPGWrapper(BedrockBase):
             logging.info(f"Processing chunk {x} of {total_chunks}")
             for file in p:
                 df = pd.read_parquet(file)
-                df = pd.read_json(StringIO(df.to_json()))
                 df = df.replace(np.nan, None)
-                loader = DataFrameLoader(df, page_content_column=page_content_column)
-                data: List[Document] = loader.load()
+                df = pd.read_json(StringIO(df.to_json()))
+
+                df = df.replace(np.nan, None)
+                text = df.to_json(orient='records', lines=True)
+                text_splitter = CharacterTextSplitter(
+                    separator="\n",
+                    # chunk_size=1000,
+                    # chunk_overlap=200,
+                    length_function=len,
+                    is_separator_regex=False,
+                )
+                docs: List[Document] = text_splitter.create_documents([text])
+                # loader = DataFrameLoader(df, page_content_column=page_content_column)
+                # data: List[Document] = loader.load()
                 if additional_metadata:
-                    for d in data:
+                    for d in docs:
                         d["metadata"].update(additional_metadata)
-                docs = docs + data
             logging.info(f"Running ingestion job")
             ids = self.run_ingestion_job(
                 documents=docs,
