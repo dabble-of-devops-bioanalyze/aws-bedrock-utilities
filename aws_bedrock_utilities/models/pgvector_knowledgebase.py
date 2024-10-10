@@ -326,14 +326,10 @@ class BedrockPGWrapper(BedrockBase):
         y = len(files)
         total_chunks = math.ceil(y / chunk_size)
         docs = []
-        # TODO Change this to jsonl and text loader
         for p in partition_all(chunk_size, files):
             logging.info(f"Processing chunk {x} of {total_chunks}")
             for file in p:
                 df = pd.read_parquet(file)
-                df = df.replace(np.nan, None)
-                df = pd.read_json(StringIO(df.to_json()))
-
                 df = df.replace(np.nan, None)
                 text = df.to_json(orient='records', lines=True)
                 text_splitter = CharacterTextSplitter(
