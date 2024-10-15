@@ -326,6 +326,7 @@ class BedrockPGWrapper(BedrockBase):
         y = len(files)
         total_chunks = math.ceil(y / chunk_size)
         docs = []
+        ingested_ids = []
         for p in partition_all(chunk_size, files):
             logging.info(f"Processing chunk {x} of {total_chunks}")
             for file in p:
@@ -334,7 +335,7 @@ class BedrockPGWrapper(BedrockBase):
                 text = df.to_json(orient='records', lines=True)
                 text_splitter = CharacterTextSplitter(
                     separator="\n",
-                    # chunk_size=1000,
+                    chunk_size=4000,
                     # chunk_overlap=200,
                     length_function=len,
                     is_separator_regex=False,
@@ -350,7 +351,8 @@ class BedrockPGWrapper(BedrockBase):
                 documents=docs,
             )
             x = x + 1
-        return
+            ingested_ids = ids + ingested_ids
+        return ingested_ids
 
     def run_kb_chat(
         self,
@@ -360,6 +362,8 @@ class BedrockPGWrapper(BedrockBase):
         model_id="anthropic.claude-3-sonnet-20240229-v1:0",
         search_kwargs: Optional[Dict[str, Any]] = None,
     ) -> RAGResults:
+        if not search_kwargs:
+            search_kwargs = {}
         if not prompt_template:
             prompt_template = self.kb_prompt_template
         prompt = PromptTemplate(
