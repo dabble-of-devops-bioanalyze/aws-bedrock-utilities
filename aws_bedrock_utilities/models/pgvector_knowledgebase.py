@@ -339,7 +339,7 @@ class BedrockPGWrapper(BedrockBase):
                     length_function=len,
                     is_separator_regex=False,
                 )
-                docs: List[Document] = text_splitter.create_documents([text])
+                docs: list[Document] = text_splitter.create_documents([text])
                 # loader = DataFrameLoader(df, page_content_column=page_content_column)
                 # data: List[Document] = loader.load()
                 if additional_metadata:
