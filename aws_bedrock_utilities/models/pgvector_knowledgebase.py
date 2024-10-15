@@ -270,7 +270,7 @@ class BedrockPGWrapper(BedrockBase):
 
     def run_ingestion_job(
         self,
-        documents=List[Document],
+        documents=list[Document],
     ):
         y = len(documents)
         logging.info(f"Starting ingestion job with {y} documents")
