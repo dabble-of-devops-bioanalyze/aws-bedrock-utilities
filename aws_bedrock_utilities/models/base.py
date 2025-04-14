@@ -1,59 +1,28 @@
 """Main module."""
 
 import boto3
-import pprint
-import json
-import hashlib
-import funcy
 from typing import Dict, Any, TypedDict, List, Optional
-from langchain_core.documents.base import Document
 from botocore.client import Config
-from langchain.llms.bedrock import Bedrock
-from langchain.retrievers.bedrock import (
+from langchain_community.retrievers.bedrock import (
     AmazonKnowledgeBasesRetriever,
     RetrievalConfig,
     VectorSearchConfig,
 )
+
+# from langchain.retrievers.bedrock import (
+#     AmazonKnowledgeBasesRetriever,
+#     RetrievalConfig,
+# )
+from langchain_core.prompts import ChatPromptTemplate
 from langchain.prompts import PromptTemplate
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain_core.messages import HumanMessage
-from langchain.chains import RetrievalQA
-from langchain_community.embeddings import (
-    BedrockEmbeddings,
-)  # to create embeddings for the documents.
-from langchain_experimental.text_splitter import (
-    SemanticChunker,
-)  # to split documents into smaller chunks.
-from langchain_text_splitters import CharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain_postgres import PGVector
-from langchain_postgres.vectorstores import PGVector
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.chat_models import BedrockChat
-from langchain.chains import RetrievalQA
-from langchain.callbacks import StdOutCallbackHandler
-
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
-
 from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
 
-from langchain_community.chat_models import ChatOpenAI
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
-
-from langchain.agents import Tool
 from langchain.chains import RetrievalQA
 from langchain_aws import ChatBedrock
 import functools
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import CharacterTextSplitter
-from pydantic import BaseModel, Field
-
-import os
 import logging
 from rich.logging import RichHandler
 
@@ -135,18 +104,29 @@ class BedrockBase:
     The response should be specific and use statistics or numbers when possible.
 
     Assistant:"""
-        self.chat_prompt_template = """
-Human: You are an AI system for knowledge retrieval. You provide answers to questions by using fact based and statistical information when possible.
-Use the following pieces of information to provide a concise answer to the question enclosed in {query} tags.
+        #         self.chat_prompt_template = """
+        # Human: You are an AI system for knowledge retrieval. You provide answers to questions by using fact based and statistical information when possible.
+        # Use the following pieces of information to provide a concise answer to the question enclosed in {query} tags.
+        # If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        #
+        # Current conversation:
+        # {history}
+        #
+        # The response should be specific and use statistics or numbers when possible.
+        # User: {query}
+        # Bot:
+        #     """
+        self.chat_prompt_template = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """You are an AI system for knowledge retrieval. You provide answers to questions by using fact based and statistical information when possible.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-Current conversation:
-{history}
-
-The response should be specific and use statistics or numbers when possible.
-User: {query}
-Bot:
-    """
+""",
+                ),
+                ("human", "{input}"),
+            ]
+        )
 
     def get_model_ids(self, client: Optional = None):
         if not client:
@@ -250,9 +230,10 @@ Bot:
         if not prompt_template:
             prompt_template = self.chat_prompt_template
 
-        chat = BedrockChat(
-            model_id=model_id,
-        )
+        # chat = BedrockChat(
+        #     model_id=model_id,
+        # )
+        chat = ChatBedrock(model_id=model_id)
         messages = [HumanMessage(content=query)]
         response = chat(messages)
         return RAGResults(query=query, result=response.content, source_documents=[""])

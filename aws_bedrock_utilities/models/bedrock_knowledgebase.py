@@ -5,11 +5,10 @@ import logging
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import PromptTemplate
-from langchain.retrievers.bedrock import (
-    AmazonKnowledgeBasesRetriever,
-    RetrievalConfig,
-    VectorSearchConfig,
-)
+from langchain_aws.retrievers.bedrock import RetrievalConfig, VectorSearchConfig
+from langchain_aws.retrievers import AmazonKnowledgeBasesRetriever
+
+# from langchain_aws import AmazonKnowledgeBasesRetriever
 
 from aws_bedrock_utilities.models.base import BedrockBase, RAGResults
 

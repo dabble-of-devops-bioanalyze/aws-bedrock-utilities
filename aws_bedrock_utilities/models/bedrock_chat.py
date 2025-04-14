@@ -1,14 +1,11 @@
 """Main module."""
 
 import logging
-from typing import Dict, Any
-from typing import Optional
+from typing import Dict, Any, List, Optional
 
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import PromptTemplate
 from rich.logging import RichHandler
 
+from langchain_core.prompts import ChatPromptTemplate
 from aws_bedrock_utilities.models.base import BedrockBase, RAGResults
 
 FORMAT = "%(message)s"
@@ -26,61 +23,54 @@ class BedrockChatWrapper(BedrockBase):
     def run_chat_with_memory(
         self,
         query: str,
-        prompt_template=None,
+        prompt_template: Optional[ChatPromptTemplate] = None,
         model_id="anthropic.claude-instant-v1",
-        memory: ConversationBufferMemory = None,
+        history: Optional[str] = None,
     ) -> RAGResults:
+        message_history = ""
         if not prompt_template:
             prompt_template = self.chat_prompt_template
-        if not memory:
-            memory = ConversationBufferMemory(human_prefix="User", ai_prefix="Bot")
+        if history and len(history):
+            message_history = f"""Here's the message history.
+            <history>
+            {history}
+            </history>
+            """
 
-        prompt = PromptTemplate(
-            input_variables=["history", "query"], template=prompt_template
-        )
-        conversation = ConversationChain(
-            prompt=prompt,
-            llm=self.get_llm(model_id=model_id),
-            verbose=True,
-            memory=memory,
-        )
+        query = f"""
+        {message_history}
+        <query>
+        {query}
+        </query>
+        """
 
-        answer = conversation.invoke(query)
-        answer = answer["response"].strip()
-        # answer = conversation.run(query)
-        # answer = answer.strip()
-
-        results = RAGResults(
-            query=query,
-            result=answer,
-            source_documents=[""],
+        prompt = prompt_template
+        chain = prompt | self.get_llm(model_id=model_id)
+        answer = chain.invoke(
+            {
+                "input": query,
+            }
         )
-        return results
+        response = answer.content.strip()
+        return RAGResults(query=query, result=response, source_documents=[""])
 
     def run_chat(
         self,
         query: str,
         model_kwargs: Optional[Dict[str, Any]] = None,
-        prompt_template=None,
-        model_id="anthropic.claude-instant-v1",
+        prompt_template: Optional[ChatPromptTemplate] = None,
+        model_id: str = "anthropic.claude-instant-v1",
     ) -> RAGResults:
         if not prompt_template:
-            prompt_template = self.chat_prompt_template
+            prompt = self.chat_prompt_template
+        else:
+            prompt = prompt_template
 
-        prompt = PromptTemplate(
-            input_variables=["history", "query"], template=prompt_template
+        chain = prompt | self.get_llm(model_id=model_id)
+        answer = chain.invoke(
+            {
+                "input": query,
+            }
         )
-        conversation = ConversationChain(
-            prompt=prompt,
-            llm=self.get_llm(model_id=model_id),
-            verbose=True,
-            memory=ConversationBufferMemory(ai_prefix="AI Assistant"),
-        )
-
-        answer = conversation.invoke(query)
-        answer = answer["response"].strip()
-        # chat = ChatBedrock(model_id=model_id)
-        # messages = [HumanMessage(content=query)]
-        # response = chat(messages)
-        # return RAGResults(query=query, result=response.content, source_documents=[""])
-        return RAGResults(query=query, result=answer, source_documents=[""])
+        response = answer.content.strip()
+        return RAGResults(query=query, result=response, source_documents=[""])

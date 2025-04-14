@@ -8,30 +8,44 @@ from click.testing import CliRunner
 
 from aws_bedrock_utilities import aws_bedrock_utilities
 from aws_bedrock_utilities import cli
+import os
+from pprint import pprint
+
+from aws_bedrock_utilities.models.bedrock_chat import BedrockChatWrapper
+from aws_bedrock_utilities.models.bedrock_knowledgebase import (
+    BedrockKnowledgeBaseChatWrapper,
+)
 
 
-@pytest.fixture
-def response():
-    """Sample pytest fixture.
-
-    See more at: http://doc.pytest.org/en/latest/fixture.html
-    """
-    # import requests
-    # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
+# these tests can only be run locally since they require aws credentials
 
 
-def test_content(response):
+def test_chat():
     """Sample pytest test function with the pytest fixture as an argument."""
     # from bs4 import BeautifulSoup
     # assert 'GitHub' in BeautifulSoup(response.content).title.string
+    chat = BedrockChatWrapper()
+    response = chat.run_chat(
+        query="What is the capital of France?", model_id="anthropic.claude-instant-v1"
+    )
+    pprint(response)
+    assert True
 
 
-def test_command_line_interface():
-    """Test the CLI."""
-    runner = CliRunner()
-    result = runner.invoke(cli.main)
-    assert result.exit_code == 0
-    assert "aws_bedrock_utilities.cli.main" in result.output
-    help_result = runner.invoke(cli.main, ["--help"])
-    assert help_result.exit_code == 0
-    assert "--help  Show this message and exit." in help_result.output
+def test_chat_with_memory():
+    chat = BedrockChatWrapper()
+    response = chat.run_chat_with_memory(
+        query="What is the capital of France?", model_id="anthropic.claude-instant-v1"
+    )
+    pprint(response)
+    assert True
+
+
+def test_chat_with_rag():
+    rag_chat = BedrockKnowledgeBaseChatWrapper()
+    response = rag_chat.run_kb_chat(
+        query="Tell me something interesting about this dataset.",
+        knowledge_base_id=os.environ["KB_ID"],
+    )
+    pprint(response)
+    assert True

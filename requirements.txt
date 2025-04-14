@@ -1,5 +1,6 @@
 pandas
 numpy
+langchain==0.3.23
 langchain-community
 langchain_experimental
 langchain_postgres
@@ -20,3 +21,4 @@ openpyxl
 python-pptx
 rapidocr-onnxruntime
 python-magic
+pydantic>=2

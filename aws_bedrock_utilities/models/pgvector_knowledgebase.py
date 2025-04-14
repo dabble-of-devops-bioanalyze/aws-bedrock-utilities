@@ -15,9 +15,7 @@ from langchain_core.documents.base import Document
 import funcy
 import psycopg
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.embeddings import (
-    BedrockEmbeddings,
-)  # to create embeddings for the documents.
+from langchain_aws import BedrockEmbeddings
 from langchain_postgres.vectorstores import PGVector
 from langchain_text_splitters import CharacterTextSplitter
 from rich.logging import RichHandler
@@ -276,9 +274,7 @@ class BedrockPGWrapper(BedrockBase):
         logging.info(f"Starting ingestion job with {y} documents")
         ids = []
         for d in documents:
-            ids.append(
-                hashlib.sha256(d.page_content.encode()).hexdigest()
-            )
+            ids.append(hashlib.sha256(d.page_content.encode()).hexdigest())
         texts = [i.page_content for i in documents]
         # metadata is a dictionary. You can add to it!
         metadatas = [i.metadata for i in documents]
@@ -287,8 +283,10 @@ class BedrockPGWrapper(BedrockBase):
         doc_ids = []
         if len(documents):
             try:
-                with funcy.print_durations(f'load psql: {len(documents)}'):
-                    doc_ids = self.vectorstore.add_texts(texts=texts, metadatas=metadatas, ids=ids)
+                with funcy.print_durations(f"load psql: {len(documents)}"):
+                    doc_ids = self.vectorstore.add_texts(
+                        texts=texts, metadatas=metadatas, ids=ids
+                    )
             except Exception as e:
                 logging.warning(f"{e}")
         return doc_ids
@@ -332,7 +330,7 @@ class BedrockPGWrapper(BedrockBase):
             for file in p:
                 df = pd.read_parquet(file)
                 df = df.replace(np.nan, None)
-                text = df.to_json(orient='records', lines=True)
+                text = df.to_json(orient="records", lines=True)
                 text_splitter = CharacterTextSplitter(
                     separator="\n",
                     chunk_size=4000,
