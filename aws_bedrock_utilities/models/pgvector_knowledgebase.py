@@ -11,6 +11,7 @@ from toolz.itertoolz import partition_all
 import pandas as pd
 import unstructured
 from langchain_core.documents.base import Document
+from functools import cached_property
 
 import funcy
 import urllib.parse
@@ -260,7 +261,7 @@ class BedrockPGWrapper(BedrockBase):
         )
         return vectorstore
 
-    @property
+    @cached_property
     def vectorstore(self):
         table_name = self.collection_name
         vector_size = 1536
