@@ -220,9 +220,7 @@ class BedrockPGWrapper(BedrockBase):
 
     @property
     def conn(self):
-        conn = psycopg.connect(
-            connifo=self.connection_string
-        )
+        conn = psycopg.connect(connifo=self.connection_string)
         return conn
 
     @property
@@ -249,8 +247,7 @@ class BedrockPGWrapper(BedrockBase):
             self.pg_engine.init_vectorstore_table(
                 table_name=table_name,
                 vector_size=vector_size,
-                metadata_columns=[
-                ],
+                metadata_columns=[],
             )
         except ProgrammingError as e:
             # Catching the exception here
@@ -259,13 +256,30 @@ class BedrockPGWrapper(BedrockBase):
             engine=self.pg_engine,
             table_name=table_name,
             embedding_service=self.embeddings,
-            metadata_columns=[]
+            metadata_columns=[],
         )
         return vectorstore
 
     @property
     def vectorstore(self):
-        return self.create_vectorstore(self.collection_name)
+        table_name = self.collection_name
+        vector_size = 1536
+        try:
+            self.pg_engine.init_vectorstore_table(
+                table_name=table_name,
+                vector_size=vector_size,
+                metadata_columns=[],
+            )
+        except ProgrammingError as e:
+            # Catching the exception here
+            print("Table already exists. Skipping creation.")
+        vectorstore = PGVectorStore.create_sync(
+            engine=self.pg_engine,
+            table_name=table_name,
+            embedding_service=self.embeddings,
+            metadata_columns=[],
+        )
+        return vectorstore
 
     def load_local_file_to_document(self, file) -> List[Document]:
         loader_data = get_loader(file)
