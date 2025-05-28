@@ -236,7 +236,7 @@ class BedrockPGWrapper(BedrockBase):
     @property
     def embeddings(self):
         embeddings = BedrockEmbeddings(
-            model_id="amazon.titan-embed-text-v1",
+            model_id=self.text_model_id,
         )
         return embeddings
 
