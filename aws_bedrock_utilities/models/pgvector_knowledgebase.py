@@ -237,12 +237,16 @@ class BedrockPGWrapper(BedrockBase):
         )
         return embeddings
 
+    @property
+    def pg_engine(self):
+        pg_engine = PGEngine.from_connection_string(url=self.connection_string)
+        return pg_engine
+
     def create_vectorstore(self, collection_name: str):
         table_name = collection_name
         vector_size = 1536
-        pg_engine = PGEngine.from_connection_string(url=self.connection_string)
         try:
-            pg_engine.init_vectorstore_table(
+            self.pg_engine.init_vectorstore_table(
                 table_name=table_name,
                 vector_size=vector_size,
                 metadata_columns=[
@@ -252,7 +256,7 @@ class BedrockPGWrapper(BedrockBase):
             # Catching the exception here
             print("Table already exists. Skipping creation.")
         vectorstore = PGVectorStore.create_sync(
-            engine=pg_engine,
+            engine=self.pg_engine,
             table_name=table_name,
             embedding_service=self.embeddings,
             metadata_columns=[]
