@@ -203,29 +203,28 @@ class BedrockPGWrapper(BedrockBase):
 
     @property
     def connection_string(self):
-        driver = "psycopg2"
         user = os.environ.get("POSTGRES_USER", "postgres")
         password = os.environ.get("POSTGRES_PASSWORD")
         host = os.environ.get("POSTGRES_HOST")
         port = os.environ.get("POSTGRES_PORT", "5432")
         database = os.environ.get("POSTGRES_DB", "postgres")
         # connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
-        CONNECTION_STRING = f"postgresql+psycopg2://{urllib.parse.quote_plus(user)}:{urllib.parse.quote_plus(password)}@{host}:{port}/{urllib.parse.quote_plus(database)}"
+        CONNECTION_STRING = f"postgresql+psycopg://{urllib.parse.quote_plus(user)}:{urllib.parse.quote_plus(password)}@{host}:{port}/{urllib.parse.quote_plus(database)}"
         return CONNECTION_STRING
 
     @property
     def conn(self):
-        driver = "psycopg2"
-        user = os.environ.get("POSTGRES_USER", "postgres")
-        password = os.environ.get("POSTGRES_PASSWORD")
-        host = os.environ.get("POSTGRES_HOST")
-        port = os.environ.get("POSTGRES_PORT", "5432")
-        database = os.environ.get("POSTGRES_DB", "postgres")
-        connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+        # user = os.environ.get("POSTGRES_USER", "postgres")
+        # password = os.environ.get("POSTGRES_PASSWORD")
+        # host = os.environ.get("POSTGRES_HOST")
+        # port = os.environ.get("POSTGRES_PORT", "5432")
+        # database = os.environ.get("POSTGRES_DB", "postgres")
+        # connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
         # CONNECTION_STRING = self.connection_string
         # Establish the connection to the database
         conn = psycopg.connect(
-            conninfo=f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            self.connection_string
+            # conninfo=f"postgresql://{user}:{password}@{host}:{port}/{database}"
         )
         return conn
 
