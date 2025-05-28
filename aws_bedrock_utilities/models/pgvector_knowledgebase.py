@@ -13,6 +13,7 @@ import unstructured
 from langchain_core.documents.base import Document
 
 import funcy
+import urllib.parse
 import psycopg
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_aws import BedrockEmbeddings
@@ -179,15 +180,23 @@ def get_loader(filepath: str) -> Dict[str, Any]:
 
 
 class BedrockPGWrapper(BedrockBase):
-    def __init__(self, collection_name: str = "default", **kwargs):
+    def __init__(
+        self,
+        collection_name: str = "default",
+        text_model_id: str = "amazon.titan-embed-text-v1",
+        image_model_id: str = "amazon.titan-embed-image-v1",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
+        self.text_model_id = text_model_id
+        self.image_model_id = image_model_id
         if "prompt_template" not in kwargs:
             self.prompt_template = self.kb_prompt_template
         self.bedrock_embeddings = BedrockEmbeddings(
-            model_id="amazon.titan-embed-text-v1", client=self.bedrock_client
+            model_id=text_model_id, client=self.bedrock_client
         )
         self.bedrock_embeddings_image = BedrockEmbeddings(
-            model_id="amazon.titan-embed-image-v1", client=self.bedrock_client
+            model_id=image_model_id, client=self.bedrock_client
         )
         self.s3 = boto3.client("s3")
         self.collection_name = collection_name
@@ -200,8 +209,9 @@ class BedrockPGWrapper(BedrockBase):
         host = os.environ.get("POSTGRES_HOST")
         port = os.environ.get("POSTGRES_PORT", "5432")
         database = os.environ.get("POSTGRES_DB", "postgres")
-        connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
-        return connection
+        # connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+        CONNECTION_STRING = f"postgresql+psycopg2://{urllib.parse.quote_plus(user)}:{urllib.parse.quote_plus(password)}@{host}:{port}/{urllib.parse.quote_plus(database)}"
+        return CONNECTION_STRING
 
     @property
     def conn(self):
@@ -212,6 +222,7 @@ class BedrockPGWrapper(BedrockBase):
         port = os.environ.get("POSTGRES_PORT", "5432")
         database = os.environ.get("POSTGRES_DB", "postgres")
         connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
+        # CONNECTION_STRING = self.connection_string
         # Establish the connection to the database
         conn = psycopg.connect(
             conninfo=f"postgresql://{user}:{password}@{host}:{port}/{database}"
