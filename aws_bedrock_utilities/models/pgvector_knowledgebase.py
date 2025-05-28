@@ -19,6 +19,13 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_aws import BedrockEmbeddings
 from langchain_postgres.vectorstores import PGVector
 from langchain_text_splitters import CharacterTextSplitter
+
+from langchain_postgres import PGEngine
+from langchain_postgres import Column
+from sqlalchemy.exc import ProgrammingError
+from langchain_text_splitters.character import RecursiveCharacterTextSplitter
+from langchain_postgres import PGVectorStore
+
 from rich.logging import RichHandler
 
 from aws_bedrock_utilities.models.base import BedrockBase
@@ -209,22 +216,12 @@ class BedrockPGWrapper(BedrockBase):
         port = os.environ.get("POSTGRES_PORT", "5432")
         database = os.environ.get("POSTGRES_DB", "postgres")
         # connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
-        CONNECTION_STRING = f"postgresql+psycopg://{urllib.parse.quote_plus(user)}:{urllib.parse.quote_plus(password)}@{host}:{port}/{urllib.parse.quote_plus(database)}"
-        return CONNECTION_STRING
+        return f"postgresql+psycopg://{urllib.parse.quote_plus(user)}:{urllib.parse.quote_plus(password)}@{host}:{port}/{urllib.parse.quote_plus(database)}"
 
     @property
     def conn(self):
-        # user = os.environ.get("POSTGRES_USER", "postgres")
-        # password = os.environ.get("POSTGRES_PASSWORD")
-        # host = os.environ.get("POSTGRES_HOST")
-        # port = os.environ.get("POSTGRES_PORT", "5432")
-        # database = os.environ.get("POSTGRES_DB", "postgres")
-        # connection = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
-        # CONNECTION_STRING = self.connection_string
-        # Establish the connection to the database
         conn = psycopg.connect(
-            self.connection_string
-            # conninfo=f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            connifo=self.connection_string
         )
         return conn
 
@@ -241,21 +238,30 @@ class BedrockPGWrapper(BedrockBase):
         return embeddings
 
     def create_vectorstore(self, collection_name: str):
-        return PGVector(
-            embeddings=self.embeddings,
-            collection_name=collection_name,
-            connection=self.connection_string,
-            use_jsonb=True,
+        table_name = collection_name
+        vector_size = 1536
+        pg_engine = PGEngine.from_connection_string(url=self.connection_string)
+        try:
+            pg_engine.init_vectorstore_table(
+                table_name=table_name,
+                vector_size=vector_size,
+                metadata_columns=[
+                ],
+            )
+        except ProgrammingError as e:
+            # Catching the exception here
+            print("Table already exists. Skipping creation.")
+        vectorstore = PGVectorStore.create_sync(
+            engine=pg_engine,
+            table_name=table_name,
+            embedding_service=self.embeddings,
+            metadata_columns=[]
         )
+        return vectorstore
 
     @property
     def vectorstore(self):
-        return PGVector(
-            embeddings=self.embeddings,
-            collection_name=self.collection_name,
-            connection=self.connection_string,
-            use_jsonb=True,
-        )
+        return self.create_vectorstore(self.collection_name)
 
     def load_local_file_to_document(self, file) -> List[Document]:
         loader_data = get_loader(file)
